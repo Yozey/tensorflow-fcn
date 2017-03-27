@@ -47,7 +47,7 @@ def read_and_decode(filename):
 	features = tf.parse_single_example(serialized_example,
                                        features={
                                            'image_raw': tf.FixedLenFeature([], tf.string),
-                                           'label_raw' : tf.FixedLenFeature([], tf.string),
+                                           'label_raw' : tf.FixedLenFeature([NUM_POINTS*224*224,], tf.float32),
                                        })
 
 	img = tf.decode_raw(features['image_raw'], tf.uint8)

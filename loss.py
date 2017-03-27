@@ -17,7 +17,7 @@ def loss(predictions, labels, loss_type):
 
   Args:
     predictions: tensor, float32 - [N,C,H,W]
-    labels: tensor, float16 - [N,C,H,W]
+    labels: tensor, float32 - [N,C,H,W]
 
   Returns:
     loss: tensor, float32 -[N,]
@@ -26,9 +26,9 @@ def loss(predictions, labels, loss_type):
   with tf.name_scope('loss'):
     if loss_type == "cross_entropy":
       # Reshape to: [N,C,H*W]
-      predictions_shape= predictions.get_shape().as_list()
+      predictions_shape= tf.shape(predictions)
       predictions=tf.reshape(predictions, [predictions_shape[0],predictions_shape[1],-1])
-      labels_shape=labels.get_shape().as_list()
+      labels_shape=tf.shape(labels)
       labels=tf.reshape(labels,[labels_shape[0], labels_shape[1],-1])
       # Softmax on the last dimension
       # softmax shape : [N,C,H*W]

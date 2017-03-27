@@ -98,12 +98,11 @@ class FCN32VGG:
 
         self.fc6 = self._fc_layer(self.pool5, "fc6")
 
-        if train:
-            self.fc6 = tf.nn.dropout(self.fc6, 0.5)
+        self.fc6 = tf.cond(train, lambda: tf.nn.dropout(self.fc6, 0.5), lambda: self.fc6)
 
         self.fc7 = self._fc_layer(self.fc6, "fc7")
-        if train:
-            self.fc7 = tf.nn.dropout(self.fc7, 0.5)
+
+        self.fc7 = tf.cond(train, lambda: tf.nn.dropout(self.fc7, 0.5), lambda: self.fc7)
 
         if random_init_fc8:
             self.score_fr = self._score_layer(self.fc7, "score_fr",
@@ -115,7 +114,7 @@ class FCN32VGG:
 
         # self.pred = tf.argmax(self.score_fr, dimension=3)
 
-        self.upscore = self._upscore_layer(self.score_fr, shape=tf.shape(bgr),
+        self.upscore = self._upscore_layer(self.score_fr, shape=tf.shape(rgb),
                                            num_points=num_points,
                                            debug=debug,
                                            name='up', ksize=64, stride=32)
@@ -123,7 +122,7 @@ class FCN32VGG:
         # self.pred_up = tf.argmax(self.upscore, dimension=3)
 
     def _max_pool(self, bottom, name, debug):
-        pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
+        pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 1, 2, 2],
                               padding='SAME',data_format='NCHW', name=name)
 
         if debug:

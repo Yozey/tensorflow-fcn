@@ -11,6 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 VGG_MEAN = [103.939, 116.779, 123.68]
+MEAN_300W_COLOR = [134.15908039, 102.21485226, 87.83142608] # order RGB
 
 
 class FCN32VGG:
@@ -34,7 +35,7 @@ class FCN32VGG:
         self.wd = 5e-4
         print("npy file loaded")
 
-    def build(self, rgb, train=False, num_classes=20, random_init_fc8=False,
+    def build(self, rgb, train=False, num_classes=1000, num_points=68, random_init_fc8=True,
               debug=False):
         """
         Build the VGG model using loaded weights
@@ -53,18 +54,19 @@ class FCN32VGG:
             Whether to print additional Debug Information.
         """
         # Convert RGB to BGR
+        # Input image type:[N,C,H,W] in RGB
 
         with tf.name_scope('Processing'):
 
-            red, green, blue = tf.split(rgb, 3, 3)
-            # assert red.get_shape().as_list()[1:] == [224, 224, 1]
-            # assert green.get_shape().as_list()[1:] == [224, 224, 1]
-            # assert blue.get_shape().as_list()[1:] == [224, 224, 1]
+            red, green, blue = tf.split(rgb, 3, axis=1)
+            assert red.get_shape().as_list()[1:] == [1, 224, 224]
+            assert green.get_shape().as_list()[1:] == [1, 224, 224]
+            assert blue.get_shape().as_list()[1:] == [1, 224, 224]
             bgr = tf.concat([
-                blue - VGG_MEAN[0],
-                green - VGG_MEAN[1],
-                red - VGG_MEAN[2],
-            ], 3)
+                blue - MEAN_300W_COLOR[2],
+                green - MEAN_300W_COLOR[1],
+                red - MEAN_300W_COLOR[0]
+            ], axis=1)
 
             if debug:
                 bgr = tf.Print(bgr, [tf.shape(bgr)],
@@ -111,18 +113,18 @@ class FCN32VGG:
                                            num_classes=num_classes,
                                            relu=False)
 
-        self.pred = tf.argmax(self.score_fr, dimension=3)
+        # self.pred = tf.argmax(self.score_fr, dimension=3)
 
         self.upscore = self._upscore_layer(self.score_fr, shape=tf.shape(bgr),
-                                           num_classes=num_classes,
+                                           num_points=num_points,
                                            debug=debug,
                                            name='up', ksize=64, stride=32)
 
-        self.pred_up = tf.argmax(self.upscore, dimension=3)
+        # self.pred_up = tf.argmax(self.upscore, dimension=3)
 
     def _max_pool(self, bottom, name, debug):
         pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                              padding='SAME', name=name)
+                              padding='SAME',data_format='NCHW', name=name)
 
         if debug:
             pool = tf.Print(pool, [tf.shape(pool)],
@@ -133,10 +135,10 @@ class FCN32VGG:
     def _conv_layer(self, bottom, name):
         with tf.variable_scope(name) as scope:
             filt = self.get_conv_filter(name)
-            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME', data_format='NCHW')
 
             conv_biases = self.get_bias(name)
-            bias = tf.nn.bias_add(conv, conv_biases)
+            bias = tf.nn.bias_add(conv, conv_biases,data_format='NCHW')
 
             relu = tf.nn.relu(bias)
             # Add summary to Tensorboard
@@ -156,9 +158,9 @@ class FCN32VGG:
                                                   num_classes=num_classes)
             else:
                 filt = self.get_fc_weight_reshape(name, [1, 1, 4096, 4096])
-            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME',data_format='NCHW')
             conv_biases = self.get_bias(name, num_classes=num_classes)
-            bias = tf.nn.bias_add(conv, conv_biases)
+            bias = tf.nn.bias_add(conv, conv_biases,data_format='NCHW')
 
             if relu:
                 bias = tf.nn.relu(bias)
@@ -173,7 +175,7 @@ class FCN32VGG:
     def _score_layer(self, bottom, name, num_classes):
         with tf.variable_scope(name) as scope:
             # get number of input channels
-            in_features = bottom.get_shape()[3].value
+            in_features = bottom.get_shape()[1].value
             shape = [1, 1, in_features, num_classes]
             # He initialization Sheme
             num_input = in_features
@@ -181,35 +183,35 @@ class FCN32VGG:
             # Apply convolution
             w_decay = self.wd
             weights = self._variable_with_weight_decay(shape, stddev, w_decay)
-            conv = tf.nn.conv2d(bottom, weights, [1, 1, 1, 1], padding='SAME')
+            conv = tf.nn.conv2d(bottom, weights, [1, 1, 1, 1], padding='SAME',data_format='NCHW')
             # Apply bias
             conv_biases = self._bias_variable([num_classes], constant=0.0)
-            bias = tf.nn.bias_add(conv, conv_biases)
+            bias = tf.nn.bias_add(conv, conv_biases,data_format='NCHW')
 
             _activation_summary(bias)
 
             return bias
 
     def _upscore_layer(self, bottom, shape,
-                       num_classes, name, debug,
+                       num_points, name, debug,
                        ksize=4, stride=2):
         strides = [1, stride, stride, 1]
         with tf.variable_scope(name):
-            in_features = bottom.get_shape()[3].value
+            in_features = bottom.get_shape()[1].value
 
             if shape is None:
                 # Compute shape out of Bottom
                 in_shape = tf.shape(bottom)
 
-                h = ((in_shape[1] - 1) * stride) + 1
-                w = ((in_shape[2] - 1) * stride) + 1
-                new_shape = [in_shape[0], h, w, num_classes]
+                h = ((in_shape[2] - 1) * stride) + 1
+                w = ((in_shape[3] - 1) * stride) + 1
+                new_shape = [in_shape[0], num_points, h, w]
             else:
-                new_shape = [shape[0], shape[1], shape[2], num_classes]
+                new_shape = [shape[0], num_points, shape[2], shape[3]]
             output_shape = tf.stack(new_shape)
 
             logging.debug("Layer: %s, Fan-in: %d" % (name, in_features))
-            f_shape = [ksize, ksize, num_classes, in_features]
+            f_shape = [ksize, ksize, num_points, in_features]
 
             # create
             num_input = ksize * ksize * in_features / stride
@@ -217,7 +219,7 @@ class FCN32VGG:
 
             weights = self.get_deconv_filter(f_shape)
             deconv = tf.nn.conv2d_transpose(bottom, weights, output_shape,
-                                            strides=strides, padding='SAME')
+                                            strides=strides, padding='SAME',data_format='NCHW')
 
             if debug:
                 deconv = tf.Print(deconv, [tf.shape(deconv)],

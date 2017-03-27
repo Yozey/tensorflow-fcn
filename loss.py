@@ -11,40 +11,54 @@ from __future__ import print_function
 
 import tensorflow as tf
 
+def loss(predictions, labels, loss_type):
+  assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
+  """Calculate the loss from the predictions & labels.
 
-def loss(logits, labels, num_classes, head=None):
-    """Calculate the loss from the logits and the labels.
+  Args:
+    predictions: tensor, float32 - [N,C,H,W]
+    labels: tensor, float16 - [N,C,H,W]
 
-    Args:
-      logits: tensor, float - [batch_size, width, height, num_classes].
-          Use vgg_fcn.up as logits.
-      labels: Labels tensor, int32 - [batch_size, width, height, num_classes].
-          The ground truth of your data.
-      head: numpy array - [num_classes]
-          Weighting the loss of each class
-          Optional: Prioritize some classes
+  Returns:
+    loss: tensor, float32 -[N,]
+  """
 
-    Returns:
-      loss: Loss tensor of type float.
-    """
-    with tf.name_scope('loss'):
-        logits = tf.reshape(logits, (-1, num_classes))
-        epsilon = tf.constant(value=1e-4)
-        logits = logits
-        labels = tf.to_float(tf.reshape(labels, (-1, num_classes)))
+  with tf.name_scope('loss'):
+    if loss_type == "cross_entropy":
+      # Reshape to: [N,C,H*W]
+      predictions_shape= predictions.get_shape().as_list()
+      predictions=tf.reshape(predictions, [predictions_shape[0],predictions_shape[1],-1])
+      labels_shape=labels.get_shape().as_list()
+      labels=tf.reshape(labels,[labels_shape[0], labels_shape[1],-1])
+      # Softmax on the last dimension
+      # softmax shape : [N,C,H*W]
+      epsilon = tf.constant(value=1e-8) # in case of log(0)
+      softmax=tf.nn.softmax(predictions) + epsilon
+      # Cross entropy, shape:[N,C,H*W]
+      cross_entropy = -labels*tf.log(softmax)-(1-labels)*tf.log(1-softmax)
+      loss=tf.reduce_mean(cross_entropy,axis=(1,2),name='xentropy_mean')
+    if loss_type == "L2":
+      loss=tf.reduce_mean(tf.nn.l2_loss(tf.subtract(predictions ,labels)),axis=(1,2),name="l2_mean")
+    tf.add_to_collection('loss', loss)
+  return loss
 
-        softmax = tf.nn.softmax(logits) + epsilon
+def get_predictions(network_output):
+  """
+  Get the point coordinates prediction result from the heatmaps
 
-        if head is not None:
-            cross_entropy = -tf.reduce_sum(tf.mul(labels * tf.log(softmax),
-                                           head), reduction_indices=[1])
-        else:
-            cross_entropy = -tf.reduce_sum(
-                labels * tf.log(softmax), reduction_indices=[1])
+  Args:
+    network_output: tensor, float32 - [N,C,H,W]
+    
+  Returns:
+    result: tensor, int - [N,C,2]
+  """
+  with tf.name_scope('predictions'):
+    y = tf.argmax(tf.reduce_max(network_output,axis=3), axis=2) # shape: [N,C]
+    x = tf.argmax(tf.reduce_max(network_output,axis=2), axis=2) # shape: [N,C]
+    y = tf.expand_dims(y,-1) # shape: [N,C,1]
+    x = tf.expand_dims(x,-1) # shape: [N,C,1]
+    predictions = tf.concat([x,y],2) # shape: [N,C,2]
+    tf.add_to_collection('predictions', predictions) 
+  return predictions
 
-        cross_entropy_mean = tf.reduce_mean(cross_entropy,
-                                            name='xentropy_mean')
-        tf.add_to_collection('losses', cross_entropy_mean)
 
-        loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
-    return loss

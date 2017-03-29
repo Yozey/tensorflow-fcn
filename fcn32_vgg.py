@@ -122,7 +122,7 @@ class FCN32VGG:
         # self.pred_up = tf.argmax(self.upscore, dimension=3)
 
     def _max_pool(self, bottom, name, debug):
-        pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 1, 2, 2],
+        pool = tf.nn.max_pool(bottom, ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],
                               padding='SAME',data_format='NCHW', name=name)
 
         if debug:
@@ -194,7 +194,7 @@ class FCN32VGG:
     def _upscore_layer(self, bottom, shape,
                        num_points, name, debug,
                        ksize=4, stride=2):
-        strides = [1, stride, stride, 1]
+        strides = [1, 1, stride, stride]
         with tf.variable_scope(name):
             in_features = bottom.get_shape()[1].value
 

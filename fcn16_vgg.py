@@ -264,9 +264,9 @@ class FCN16VGG:
                                shape=weights.shape)
 
     def get_conv_filter(self, name):
-        init = tf.constant_initializer(value=self.data_dict[name][0],
+        init = tf.constant_initializer(value=self.data_dict[name]['weights'],
                                        dtype=tf.float32)
-        shape = self.data_dict[name][0].shape
+        shape = self.data_dict[name]['weights'].shape
         print('Layer name: %s' % name)
         print('Layer shape: %s' % str(shape))
         var = tf.get_variable(name="filter", initializer=init, shape=shape)
@@ -278,8 +278,8 @@ class FCN16VGG:
         return var
 
     def get_bias(self, name, num_classes=None):
-        bias_wights = self.data_dict[name][1]
-        shape = self.data_dict[name][1].shape
+        bias_wights = self.data_dict[name]['biases']
+        shape = self.data_dict[name]['biases'].shape
         if name == 'fc8':
             bias_wights = self._bias_reshape(bias_wights, shape[0],
                                              num_classes)
@@ -289,9 +289,9 @@ class FCN16VGG:
         return tf.get_variable(name="biases", initializer=init, shape=shape)
 
     def get_fc_weight(self, name):
-        init = tf.constant_initializer(value=self.data_dict[name][0],
+        init = tf.constant_initializer(value=self.data_dict[name]['weights'],
                                        dtype=tf.float32)
-        shape = self.data_dict[name][0].shape
+        shape = self.data_dict[name]['weights'].shape
         var = tf.get_variable(name="weights", initializer=init, shape=shape)
         if not tf.get_variable_scope().reuse:
             weight_decay = tf.multiply(tf.nn.l2_loss(var), self.wd,
@@ -388,7 +388,7 @@ class FCN16VGG:
     def get_fc_weight_reshape(self, name, shape, num_classes=None):
         print('Layer name: %s' % name)
         print('Layer shape: %s' % shape)
-        weights = self.data_dict[name][0]
+        weights = self.data_dict[name]['weights']
         weights = weights.reshape(shape)
         if num_classes is not None:
             weights = self._summary_reshape(weights, shape,

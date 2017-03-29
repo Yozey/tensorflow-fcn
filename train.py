@@ -25,7 +25,7 @@ flags.DEFINE_string("loss_type", "cross_entropy","Loss type, choose between \'cr
 flags.DEFINE_integer("batch_size",4, "Batch size of the train and test")
 flags.DEFINE_integer("num_epoch",20,"Number of the epochs needs to be completed for the training")
 flags.DEFINE_string("opt_type", "Adam", "Type of optimizer to use, choose between Adam and SGD")
-flags.DEFINE_float("start_learning_rate", 1e-4, "Start learning rate")
+flags.DEFINE_float("start_learning_rate", 1e-5, "Start learning rate")
 flags.DEFINE_float("lr_decay_rate", 0.95, "Exponential learning rate decay rate, give 1 if don't want to decay the lr rate")
 flags.DEFINE_integer("lr_decay_interval", 1000, "Exponential learning rate decay interval")
 flags.DEFINE_integer("test_freq", 1000, "Validation frequency")
@@ -160,9 +160,9 @@ def build_model():
 	if FLAGS.model == "fcn32":
 		fcn = fcn32.FCN32VGG(VGG_PATH)
 	elif FLAGS.model == "fcn16":
-		fcn = fcn16.FCN32VGG(VGG_PATH)
+		fcn = fcn16.FCN16VGG(VGG_PATH)
 	elif FLAGS.model == "fcn8":
-		fcn = fcn8.FCN32VGG(VGG_PATH)
+		fcn = fcn8.FCN8VGG(VGG_PATH)
 	else:
 		raise ValueError('Please pick a network structure among fcn8, fcn16 and fcn32')
 

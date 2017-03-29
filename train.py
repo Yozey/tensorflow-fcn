@@ -38,7 +38,7 @@ FLAGS = flags.FLAGS
 
 
 SAVED_FILE_NAME="./model/"+FLAGS.model+"_"+FLAGS.loss_type+"_"+ str(FLAGS.num_epoch)+" epochs_"+FLAGS.opt_type+"_"+FLAGS.comment
-VGG_PATH = "./vgg16.npy"
+VGG_PATH = "./VGG_FACE.npy"
 
 def read_and_decode(filename):
 	filename_queue = tf.train.string_input_producer([filename])

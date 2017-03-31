@@ -56,7 +56,6 @@ class FCN16VGG:
         # Input image type:[N,C,H,W] in RGB
 
         with tf.name_scope('Processing'):
-
             red, green, blue = tf.split(rgb, 3, axis=1)
             assert red.get_shape().as_list()[1:] == [1, 224, 224]
             assert green.get_shape().as_list()[1:] == [1, 224, 224]

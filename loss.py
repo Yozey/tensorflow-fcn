@@ -11,7 +11,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-def loss(predictions, labels, loss_type):
+def loss(predictions, labels, loss_type, int_lbl):
   assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
   """Calculate the loss from the predictions & labels.
 
@@ -28,6 +28,8 @@ def loss(predictions, labels, loss_type):
       # Reshape to: [N,C,H*W]
       predictions_shape= tf.shape(predictions)
       predictions=tf.reshape(predictions, [predictions_shape[0],predictions_shape[1],-1])
+      if int_lbl:
+        labels = tf.truediv(labels, tf.constant([255],dtype=tf.uint8))
       labels_shape=tf.shape(labels)
       labels=tf.reshape(labels,[labels_shape[0], labels_shape[1],-1])
       # Softmax on the last dimension

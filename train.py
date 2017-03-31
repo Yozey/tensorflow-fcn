@@ -33,6 +33,7 @@ flags.DEFINE_string("comment", "", "Supplementary comment of the model")
 flags.DEFINE_integer("num_fc8_neurons", 68, "Define the number of the neurons in the fc8 layer")
 flags.DEFINE_boolean("debug",False,"Turn to debug mode (showing more info) if True is given")
 flags.DEFINE_string("summaries_dir", "./tmp", "Indicate the place to save tensorboard files")
+flags.DEFINE_boolean("int_lbl",True,"Indicate the label is in uint8 data type or not")
 
 FLAGS = flags.FLAGS
 
@@ -54,6 +55,24 @@ def read_and_decode(filename):
 	img = tf.cast(img, tf.float32)
 	img = tf.reshape(img, [3,224, 224])
 	lbl = tf.reshape(features['label_raw'], [NUM_POINTS,224, 224])
+	return img, lbl
+
+def read_and_decode_intlbl(filename):
+	filename_queue = tf.train.string_input_producer([filename])
+	reader = tf.TFRecordReader()
+	_, serialized_example = reader.read(filename_queue)
+	features = tf.parse_single_example(serialized_example,
+                                       features={
+                                           'image_raw': tf.FixedLenFeature([], tf.string),
+                                           'label_raw' : tf.FixedLenFeature([], tf.string),
+                                       })
+
+	img = tf.decode_raw(features['image_raw'], tf.uint8)
+	img = tf.cast(img, tf.float32)
+	img = tf.reshape(img, [3,224, 224])
+
+	lbl = tf.decode_raw(features['label_raw'], tf.uint8)
+	lbl = tf.reshape(lbl, [NUM_POINTS,224, 224])
 	return img, lbl
 
 def eval_in_batches(data,label,sess,batch_size):
@@ -154,7 +173,10 @@ def build_model():
 	# Input & Output in [N,C,H,W]
 
 	images_node = tf.placeholder(tf.float32, [None, 3, 224, 224])
-	labels_node = tf.placeholder(tf.float32, [None, NUM_POINTS, 224, 224])
+	if FLAGS.int_lbl:
+		labels_node = tf.placeholder(tf.uint8, [None, NUM_POINTS, 224, 224])
+	else:
+		labels_node = tf.placeholder(tf.float32, [None, NUM_POINTS, 224, 224])
 	mode = tf.placeholder(tf.bool)
 
 	if FLAGS.model == "fcn32":
@@ -177,7 +199,7 @@ def build_model():
 	tf.add_to_collection('labels_node', labels_node)
 	tf.add_to_collection('mode',mode)
 
-	loss = l.loss(network_output,labels_node,FLAGS.loss_type)
+	loss = l.loss(network_output,labels_node,FLAGS.loss_type,FLAGS.int_lbl)
 	predictions = l.get_predictions(network_output)
 	tf.add_to_collection('loss',loss)
 	tf.add_to_collection('predictions',predictions)
@@ -193,7 +215,8 @@ def train_model(train_images, train_labels, test_images, test_labels):
 	capacity = min_after_dequeue + (NUM_THREADS+1) * batch_size
 	image_batch, label_batch = tf.train.shuffle_batch([train_images, train_labels], 
 														batch_size=batch_size, num_threads=NUM_THREADS,
-														capacity=capacity,min_after_dequeue=min_after_dequeue)
+														capacity=capacity,min_after_dequeue=min_after_dequeue,
+														enqueue_many=False)
 	# Take the node from the graph
 	train_images_node=tf.get_collection('images_node')[0]
 	train_labels_node=tf.get_collection('labels_node')[0]
@@ -256,11 +279,17 @@ def train_model(train_images, train_labels, test_images, test_labels):
 	sess.close()
 
 def main(_):
-	# Test data preparation
-	test_images = h5py.File("./train_data/FCN_VGG_test_image.h5","r")['test_set']
-	test_labels = h5py.File("./train_data/FCN_VGG_test_label.h5","r")['test_set']
-	# Train data preparation
-	train_images, train_labels = read_and_decode("./train_data/VGG_FCN_train.tfrecords")
+	
+	if FLAGS.int_lbl:
+		# Test data preparation
+		test_images = h5py.File("./train_data/FCN_VGG_intlabel_test_image.h5","r")['test_set']
+		test_labels = h5py.File("./train_data/FCN_VGG_intlabel_test_label.h5","r")['test_set']
+		# Train data preparation
+		train_images, train_labels = read_and_decode_intlbl("./train_data/VGG_FCN_train_intlbl.tfrecords")
+	else:
+		test_images = h5py.File("./train_data/FCN_VGG_test_image.h5","r")['test_set']
+		test_labels = h5py.File("./train_data/FCN_VGG_test_label.h5","r")['test_set']
+		train_images, train_labels = read_and_decode("./train_data/VGG_FCN_train.tfrecords")
 	# test_images, test_labels = read_and_decode("./train_data/VGG_FCN_test.tfrecords")
 	# Build the tensorflow graph and Train the model
 	build_model()

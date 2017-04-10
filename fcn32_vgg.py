@@ -36,7 +36,7 @@ class FCN32VGG:
         print("npy file loaded")
 
     def build(self, rgb, train=False, num_classes=1000, num_points=68, random_init_fc8=True,
-              debug=False):
+              debug=False, half_size_label=True):
         """
         Build the VGG model using loaded weights
         Parameters
@@ -111,14 +111,22 @@ class FCN32VGG:
                                            num_classes=num_classes,
                                            relu=False)
 
-        # self.pred = tf.argmax(self.score_fr, dimension=3)
+        if half_size_label:
+            # output shape: [N,C,H/2,W/2]
+            output_shape=tf.stack(tf.shape(rgb)[0],tf.shape(rgb)[1],tf.shape(rgb)[2]/2,tf.shape(rgb)[3]/2)
+            ksize=32
+            stride=16
+        else:
+            output_shape=tf.shape(rgb)
+            ksize=64
+            stride=32
 
-        self.upscore = self._upscore_layer(self.score_fr, shape=tf.shape(rgb),
+
+        self.upscore = self._upscore_layer(self.score_fr, shape=output_shape,
                                            num_points=num_points,
                                            debug=debug,
-                                           name='up', ksize=64, stride=32)
+                                           name='up', ksize=ksize, stride=stride)
 
-        # self.pred_up = tf.argmax(self.upscore, dimension=3)
 
     def _max_pool(self, bottom, name, debug):
         pool = tf.nn.max_pool(bottom, ksize=[1, 1, 2, 2], strides=[1, 1, 2, 2],

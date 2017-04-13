@@ -280,9 +280,10 @@ class FCN8VGG:
         return var
 
     def get_conv_filter(self, name):
-        init = tf.constant_initializer(value=self.data_dict[name]['weights'],
+        weights = read_from_dict(self.data_dict[name],'weights')
+        init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
-        shape = self.data_dict[name]['weights'].shape
+        shape = weights.shape
         print('Layer name: %s' % name)
         print('Layer shape: %s' % str(shape))
         var = tf.get_variable(name="filter", initializer=init, shape=shape)
@@ -295,8 +296,8 @@ class FCN8VGG:
         return var
 
     def get_bias(self, name, num_classes=None):
-        bias_wights = self.data_dict[name]['biases']
-        shape = self.data_dict[name]['biases'].shape
+        bias_wights = read_from_dict(self.data_dict[name],'biases')
+        shape = bias_wights.shape
         if name == 'fc8':
             bias_wights = self._bias_reshape(bias_wights, shape[0],
                                              num_classes)
@@ -308,9 +309,10 @@ class FCN8VGG:
         return var
 
     def get_fc_weight(self, name):
-        init = tf.constant_initializer(value=self.data_dict[name][0],
+        weights = read_from_dict(self.data_dict[name],'weights')
+        init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
-        shape = self.data_dict[name]['weights'].shape
+        shape = weights.shape
         var = tf.get_variable(name="weights", initializer=init, shape=shape)
         if not tf.get_variable_scope().reuse:
             weight_decay = tf.multiply(tf.nn.l2_loss(var), self.wd,
@@ -421,8 +423,7 @@ class FCN8VGG:
     def get_fc_weight_reshape(self, name, shape, num_classes=None):
         print('Layer name: %s' % name)
         print('Layer shape: %s' % shape)
-        weights = self.data_dict[name]['weights']
-        weights = weights.reshape(shape)
+        weights = read_from_dict(self.data_dict[name],'weights').reshape(shape)
         if num_classes is not None:
             weights = self._summary_reshape(weights, shape,
                                             num_new=num_classes)
@@ -430,6 +431,17 @@ class FCN8VGG:
                                        dtype=tf.float32)
         var = tf.get_variable(name="weights", initializer=init, shape=shape)
         return var
+
+    def read_from_dict(input_dict,item):
+        if item=="weights" or item=="biases":
+            if item in input_dict:
+                return input_dict[item]
+            elif item == "weights":
+                return input_dict[0]
+            elif item == "biases":
+                return input_dict[1]
+        else:
+            raise ValueError('The key demanded in the npy should be \"weights\" or \"biases\".')
 
 
 def _activation_summary(x):

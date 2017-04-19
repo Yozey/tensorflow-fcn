@@ -34,8 +34,14 @@ flags.DEFINE_integer("num_fc8_neurons", 68, "Define the number of the neurons in
 flags.DEFINE_boolean("debug",False,"Turn to debug mode (showing more info) if True is given")
 flags.DEFINE_string("summaries_dir", "./tmp", "Indicate the place to save tensorboard files")
 flags.DEFINE_boolean("int_lbl",True,"Indicate the label is in uint8 data type or not")
+flags.DEFINE_boolean("half_lbl_size",True,"Indicate the label is in the half size of 224*224 or not")
 
 FLAGS = flags.FLAGS
+
+if FLAGS.half_lbl_size:
+	LBL_SIZE=112
+else:
+	LBL_SIZE=224
 
 
 SAVED_FILE_NAME="./model/"+FLAGS.model+"_"+FLAGS.loss_type+"_"+ str(FLAGS.num_epoch)+" epochs_"+FLAGS.opt_type+"_"+FLAGS.comment
@@ -72,7 +78,7 @@ def read_and_decode_intlbl(filename):
 	img = tf.reshape(img, [3,224, 224])
 
 	lbl = tf.decode_raw(features['label_raw'], tf.uint8)
-	lbl = tf.reshape(lbl, [NUM_POINTS,224, 224])
+	lbl = tf.reshape(lbl, [NUM_POINTS,LBL_SIZE, LBL_SIZE])
 	return img, lbl
 
 def eval_in_batches(data,label,sess,batch_size):
@@ -174,9 +180,9 @@ def build_model():
 
 	images_node = tf.placeholder(tf.float32, [None, 3, 224, 224])
 	if FLAGS.int_lbl:
-		labels_node = tf.placeholder(tf.uint8, [None, NUM_POINTS, 224, 224])
+		labels_node = tf.placeholder(tf.uint8, [None, NUM_POINTS, LBL_SIZE, LBL_SIZE])
 	else:
-		labels_node = tf.placeholder(tf.float32, [None, NUM_POINTS, 224, 224])
+		labels_node = tf.placeholder(tf.float32, [None, NUM_POINTS, LBL_SIZE, LBL_SIZE])
 	mode = tf.placeholder(tf.bool)
 
 	if FLAGS.model == "fcn32":
@@ -189,7 +195,7 @@ def build_model():
 		raise ValueError('Please pick a network structure among fcn8, fcn16 and fcn32')
 
 	fcn.build(images_node, train=mode, num_classes=FLAGS.num_fc8_neurons, num_points=NUM_POINTS, 
-				random_init_fc8=True, debug=FLAGS.debug)
+				random_init_fc8=True, debug=FLAGS.debug, half_size_label=FLAGS.half_lbl_size)
 	if FLAGS.model == "fcn32":
 		network_output = fcn.upscore
 	else:
@@ -280,17 +286,11 @@ def train_model(train_images, train_labels, test_images, test_labels):
 
 def main(_):
 	
-	if FLAGS.int_lbl:
-		# Test data preparation
-		test_images = h5py.File("./train_data/FCN_VGG_intlabel_test_image.h5","r")['test_set']
-		test_labels = h5py.File("./train_data/FCN_VGG_intlabel_test_label.h5","r")['test_set']
-		# Train data preparation
-		train_images, train_labels = read_and_decode_intlbl("./train_data/VGG_FCN_train_intlbl.tfrecords")
-	else:
-		test_images = h5py.File("./train_data/FCN_VGG_test_image.h5","r")['test_set']
-		test_labels = h5py.File("./train_data/FCN_VGG_test_label.h5","r")['test_set']
-		train_images, train_labels = read_and_decode("./train_data/VGG_FCN_train.tfrecords")
-	# test_images, test_labels = read_and_decode("./train_data/VGG_FCN_test.tfrecords")
+	# Test data preparation
+	test_images = h5py.File("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/test.h5","r")['image_set']
+	test_labels = h5py.File("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/test.h5","r")['label_set']
+	# Train data preparation
+	train_images, train_labels = read_and_decode_intlbl("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/train.tfrecords")
 	# Build the tensorflow graph and Train the model
 	build_model()
 	train_model(train_images, train_labels, test_images, test_labels)

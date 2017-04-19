@@ -125,7 +125,7 @@ class FCN16VGG:
 
         if half_size_label:
             # output shape: [N,C,H/2,W/2]
-            output_shape=tf.stack(tf.shape(rgb)[0],tf.shape(rgb)[1],tf.shape(rgb)[2]/2,tf.shape(rgb)[3]/2)
+            output_shape=tf.stack([tf.shape(rgb)[0],tf.shape(rgb)[1],tf.cast(tf.shape(rgb)[2]/2,tf.int32),tf.cast(tf.shape(rgb)[3]/2,tf.int32)])
             ksize=16
             stride=8
         else:
@@ -272,7 +272,7 @@ class FCN16VGG:
                                shape=weights.shape)
 
     def get_conv_filter(self, name):
-        weights = read_from_dict(self.data_dict[name],'weights')
+        weights = self.read_from_dict(self.data_dict[name],'weights')
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
         shape = weights.shape
@@ -288,7 +288,7 @@ class FCN16VGG:
         return var
 
     def get_bias(self, name, num_classes=None):
-        bias_wights = read_from_dict(self.data_dict[name],'biases')
+        bias_wights = self.read_from_dict(self.data_dict[name],'biases')
         shape = bias_wights.shape
         if name == 'fc8':
             bias_wights = self._bias_reshape(bias_wights, shape[0],
@@ -301,7 +301,7 @@ class FCN16VGG:
         return var
 
     def get_fc_weight(self, name):
-        weights = read_from_dict(self.data_dict[name],'weights')
+        weights = self.read_from_dict(self.data_dict[name],'weights')
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
         shape = weights.shape
@@ -403,7 +403,7 @@ class FCN16VGG:
     def get_fc_weight_reshape(self, name, shape, num_classes=None):
         print('Layer name: %s' % name)
         print('Layer shape: %s' % shape)
-        weights = read_from_dict(self.data_dict[name],'weights').reshape(shape)
+        weights = self.read_from_dict(self.data_dict[name],'weights').reshape(shape)
         if num_classes is not None:
             weights = self._summary_reshape(weights, shape,
                                             num_new=num_classes)
@@ -412,7 +412,7 @@ class FCN16VGG:
         var = tf.get_variable(name="weights", initializer=init, shape=shape)
         return var
 
-    def read_from_dict(input_dict,item):
+    def read_from_dict(self,input_dict,item):
         if item=="weights" or item=="biases":
             if item in input_dict:
                 return input_dict[item]
@@ -441,3 +441,19 @@ def _activation_summary(x):
     # tensor_name = re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
     tf.summary.histogram(tensor_name + '/activations', x)
     tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
+
+
+def _variable_summaries(var):
+    """Attach a lot of summaries to a Tensor."""
+    if not tf.get_variable_scope().reuse:
+        name = var.op.name
+        logging.info("Creating Summary for: %s" % name)
+        with tf.name_scope('summaries'):
+            mean = tf.reduce_mean(var)
+            tf.summary.scalar(name + '/mean', mean)
+            with tf.name_scope('stddev'):
+                stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
+            tf.summary.scalar(name + '/sttdev', stddev)
+            tf.summary.scalar(name + '/max', tf.reduce_max(var))
+            tf.summary.scalar(name + '/min', tf.reduce_min(var))
+            tf.summary.histogram(name, var)

@@ -130,7 +130,7 @@ class FCN8VGG:
 
         if half_size_label:
             # output shape: [N,C,H/2,W/2]
-            output_shape=tf.stack(tf.shape(rgb)[0],tf.shape(rgb)[1],tf.shape(rgb)[2]/2,tf.shape(rgb)[3]/2)
+            output_shape=tf.stack([tf.shape(rgb)[0],tf.shape(rgb)[1],tf.cast(tf.shape(rgb)[2]/2,tf.int32),tf.cast(tf.shape(rgb)[3]/2,tf.int32)])
             ksize=8
             stride=4
         else:
@@ -280,7 +280,7 @@ class FCN8VGG:
         return var
 
     def get_conv_filter(self, name):
-        weights = read_from_dict(self.data_dict[name],'weights')
+        weights = self.read_from_dict(self.data_dict[name],'weights')
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
         shape = weights.shape
@@ -296,7 +296,7 @@ class FCN8VGG:
         return var
 
     def get_bias(self, name, num_classes=None):
-        bias_wights = read_from_dict(self.data_dict[name],'biases')
+        bias_wights = self.read_from_dict(self.data_dict[name],'biases')
         shape = bias_wights.shape
         if name == 'fc8':
             bias_wights = self._bias_reshape(bias_wights, shape[0],
@@ -309,7 +309,7 @@ class FCN8VGG:
         return var
 
     def get_fc_weight(self, name):
-        weights = read_from_dict(self.data_dict[name],'weights')
+        weights = self.read_from_dict(self.data_dict[name],'weights')
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)
         shape = weights.shape
@@ -423,7 +423,7 @@ class FCN8VGG:
     def get_fc_weight_reshape(self, name, shape, num_classes=None):
         print('Layer name: %s' % name)
         print('Layer shape: %s' % shape)
-        weights = read_from_dict(self.data_dict[name],'weights').reshape(shape)
+        weights = self.read_from_dict(self.data_dict[name],'weights').reshape(shape)
         if num_classes is not None:
             weights = self._summary_reshape(weights, shape,
                                             num_new=num_classes)
@@ -432,7 +432,7 @@ class FCN8VGG:
         var = tf.get_variable(name="weights", initializer=init, shape=shape)
         return var
 
-    def read_from_dict(input_dict,item):
+    def read_from_dict(self,input_dict,item):
         if item=="weights" or item=="biases":
             if item in input_dict:
                 return input_dict[item]

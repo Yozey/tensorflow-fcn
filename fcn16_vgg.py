@@ -248,7 +248,7 @@ class FCN16VGG:
                                   message='Shape of %s' % name,
                                   summarize=4, first_n=1)
 
-        _activation_summary(deconv)
+        # _activation_summary(deconv)
         return deconv
 
 

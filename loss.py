@@ -11,7 +11,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-def loss(predictions, labels, loss_type, int_lbl):
+def loss_2(predictions, labels, loss_type, int_lbl):
   assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
   """Calculate the loss from the predictions & labels.
 
@@ -39,6 +39,34 @@ def loss(predictions, labels, loss_type, int_lbl):
       # Cross entropy, shape:[N,C,H*W]
       cross_entropy = -labels*tf.log(softmax)-(1-labels)*tf.log(1-softmax)
       loss=tf.reduce_sum(cross_entropy,axis=(1,2),name='xentropy_mean')
+    if loss_type == "L2":
+      loss=tf.reduce_sum(tf.nn.l2_loss(tf.subtract(predictions ,labels)),axis=(1,2),name="l2_mean")
+    tf.add_to_collection('loss', loss)
+  return loss
+
+def loss(predictions, labels, loss_type, int_lbl):
+  assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
+  """Calculate the loss from the predictions & labels.
+
+  Args:
+    predictions: tensor, float32 - [N,C,H,W]
+    labels: tensor, float32 - [N,C,H,W]
+
+  Returns:
+    loss: tensor, float32 -[N,]
+  """
+
+  with tf.name_scope('loss'):
+    if loss_type == "cross_entropy":
+      # Reshape to: [N*C,H*W]
+      predictions_shape= tf.shape(predictions)
+      predictions=tf.reshape(predictions, [predictions_shape[0]*predictions_shape[1],predictions_shape[2]*predictions_shape[3]])
+      if int_lbl:
+        labels = tf.truediv(labels, tf.constant([255],dtype=tf.uint8))
+      labels_shape=tf.shape(labels)
+      labels=tf.reshape(labels,[labels_shape[0]*labels_shape[1],labels_shape[2]*labels_shape[3]])
+      # softmax shape : [N*C,H*W]
+      loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=predictions),name='xentropy_mean')
     if loss_type == "L2":
       loss=tf.reduce_sum(tf.nn.l2_loss(tf.subtract(predictions ,labels)),axis=(1,2),name="l2_mean")
     tf.add_to_collection('loss', loss)

@@ -9,15 +9,17 @@ from six.moves import xrange
 import sys
 import loss as l
 import os
+import math
 
 # Dataset Marco
 # Specify several information of the dataset
 NUM_POINTS = 68
-LEN_TRAIN_SET = 1622 # Half of the lfpw dataset, just for test
-LEN_TEST_SET = 448
+LEN_TRAIN_SET = 94440 # Half of the lfpw dataset, just for test
 # Sysytem env Marco
 # Set a small value if the memory runs out
 NUM_THREADS = os.cpu_count()
+
+BEST_LOSS=math.inf
 
 flags = tf.app.flags
 flags.DEFINE_string("model", "fcn32","The fully convolutional model to use, choose between fcn32, fcn16, fcn8")
@@ -45,7 +47,7 @@ else:
 
 
 SAVED_FILE_NAME="./model/"+FLAGS.model+"_"+FLAGS.loss_type+"_"+ str(FLAGS.num_epoch)+" epochs_"+FLAGS.opt_type+"_"+FLAGS.comment
-VGG_PATH = "./VGG_FACE.npy"
+VGG_PATH = "./vgg16.npy"
 
 def read_and_decode(filename):
 	filename_queue = tf.train.string_input_producer([filename])
@@ -86,6 +88,7 @@ def eval_in_batches(data,label,sess,batch_size):
 # Small utility function to evaluate a dataset by feeding batches of data to
 # {test_images_node} and pulling the results from {eval_predictions}.
 
+    global BEST_LOSS,saver
     size = data.shape[0]
     if size < batch_size:
       raise ValueError("batch size for evals larger than dataset: %d" % size)
@@ -106,20 +109,19 @@ def eval_in_batches(data,label,sess,batch_size):
     for begin in xrange(0, size, batch_size):
         end = begin + batch_size
         if end <= size:
-            eval_loss[begin:end], eval_pred[begin:end, ...] = sess.run(
-            [loss,predictions],
-            feed_dict={images_node: data[begin:end, ...],
-                    labels_node: label[begin:end,...],mode: False})
+            feed_dict={images_node: data[begin:end, ...],labels_node: label[begin:end,...],mode: False}
+            eval_loss[begin:end], eval_pred[begin:end, ...] = sess.run([loss,predictions],feed_dict=feed_dict)
         else:
-            batch_loss[:],batch_pred[:,...] = sess.run(
-            [loss,predictions],
-            feed_dict={images_node: data[-batch_size:, ...],
-                    labels_node: label[-batch_size:,...],mode: False})
+            feed_dict={images_node: data[-batch_size:, ...],labels_node: label[-batch_size:,...],mode: False}
+            batch_loss[:],batch_pred[:,...] = sess.run([loss,predictions],feed_dict=feed_dict)
             eval_loss[begin:] = batch_loss[begin - size:]
             eval_pred[begin:, ...] = batch_pred[begin - size:, ...]
 
     final_eval_loss = eval_loss.mean()
-
+    if final_eval_loss<BEST_LOSS:
+        BEST_LOSS = final_eval_loss
+        saver.save(sess,SAVED_FILE_NAME+".ckpt")
+        print ('Model saved')
     print (eval_pred[:,34,0]) # To check if all the redsults for different images are identical
     return  final_eval_loss
 
@@ -241,7 +243,6 @@ def train_model(train_images, train_labels, test_images, test_labels):
 		opt = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(tf.reduce_mean(loss),global_step=global_step)
 	init_op = tf.global_variables_initializer()
 
-	saver = tf.train.Saver()
 
 	with tf.Session() as sess:
 		coord = tf.train.Coordinator()
@@ -270,15 +271,12 @@ def train_model(train_images, train_labels, test_images, test_labels):
 				print('Learning rate: %.8f' %(lr))
 				sys.stdout.flush()
 			# Save the model for each epoch
-			if (check>=LEN_TRAIN_SET):
-				saver.save(sess,SAVED_FILE_NAME+"_checkpoint.ckpt")
-				check=0
+			# if (check>=LEN_TRAIN_SET):
+			# 	saver.save(sess,SAVED_FILE_NAME+"_checkpoint.ckpt")
+			# 	check=0
 
-		eval_loss = eval_in_batches(test_set_image,test_set_label,sess,batch_size)
+		eval_loss = eval_in_batches(test_images,test_labels,sess,batch_size)
 		print('Validation loss: %.10f' % eval_loss)
-
-		saver.save(sess,SAVED_FILE_NAME+".ckpt")
-		print ('Model saved')
 
 		coord.request_stop()
 		coord.join(threads)
@@ -287,12 +285,17 @@ def train_model(train_images, train_labels, test_images, test_labels):
 def main(_):
 	
 	# Test data preparation
-	test_images = h5py.File("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/test.h5","r")['image_set']
-	test_labels = h5py.File("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/test.h5","r")['label_set']
+	test_images = h5py.File("/home/wisimage/projet/make_dataset/FCN_VGG/int112/test.h5","r")['image_set']
+	test_labels = h5py.File("/home/wisimage/projet/make_dataset/FCN_VGG/int112/test.h5","r")['label_set']
 	# Train data preparation
-	train_images, train_labels = read_and_decode_intlbl("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/train.tfrecords")
+	train_images, train_labels = read_and_decode_intlbl("/home/wisimage/projet/make_dataset/FCN_VGG/int112/train.tfrecords")
+
 	# Build the tensorflow graph and Train the model
 	build_model()
+	# Build the saver to save the model 
+	global saver
+	saver = tf.train.Saver()
+	# Train the model
 	train_model(train_images, train_labels, test_images, test_labels)
 
 if __name__ == '__main__':

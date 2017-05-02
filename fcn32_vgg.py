@@ -232,7 +232,7 @@ class FCN32VGG:
                                   message='Shape of %s' % name,
                                   summarize=4, first_n=1)
 
-        _activation_summary(deconv)
+        # _activation_summary(deconv)
         return deconv
 
     def get_deconv_filter(self, f_shape):

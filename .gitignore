@@ -50,6 +50,13 @@ coverage.xml
 *.mo
 *.pot
 
+# Files
+model/
+train_data/
+tmp/
+test_results/
+
+
 # Django stuff:
 *.log
 

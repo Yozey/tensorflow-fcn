@@ -40,7 +40,8 @@ def loss_2(predictions, labels, loss_type, int_lbl):
       cross_entropy = -labels*tf.log(softmax)-(1-labels)*tf.log(1-softmax)
       loss=tf.reduce_sum(cross_entropy,axis=(1,2),name='xentropy_mean')
     if loss_type == "L2":
-      loss=tf.reduce_sum(tf.nn.l2_loss(tf.subtract(predictions ,labels)),axis=(1,2),name="l2_mean")
+      labels = tf.cast(labels,tf.float32)
+      loss=tf.reduce_mean(tf.nn.l2_loss(tf.subtract(predictions ,labels)),name="l2_mean")
     tf.add_to_collection('loss', loss)
   return loss
 
@@ -68,7 +69,8 @@ def loss(predictions, labels, loss_type, int_lbl):
       # softmax shape : [N*C,H*W]
       loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=predictions),name='xentropy_mean')
     if loss_type == "L2":
-      loss=tf.reduce_sum(tf.nn.l2_loss(tf.subtract(predictions ,labels)),axis=(1,2),name="l2_mean")
+      labels = tf.cast(labels,tf.float32)
+      loss=tf.reduce_mean(tf.nn.l2_loss(tf.subtract(predictions ,labels)),name="l2_mean")
     tf.add_to_collection('loss', loss)
   return loss
 

@@ -70,7 +70,8 @@ def loss(predictions, labels, loss_type, int_lbl):
       loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=predictions),name='xentropy_mean')
     if loss_type == "L2":
       labels = tf.cast(labels,tf.float32)
-      loss=tf.reduce_mean(tf.nn.l2_loss(tf.subtract(predictions ,labels)),name="l2_mean")
+      loss=tf.nn.l2_loss(tf.subtract(predictions ,labels))
+      loss=tf.truediv(loss,labels_shape[0]*labels_shape[1],name="l2_mean")
     tf.add_to_collection('loss', loss)
   return loss
 

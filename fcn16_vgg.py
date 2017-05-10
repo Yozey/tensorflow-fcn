@@ -264,8 +264,7 @@ class FCN16VGG:
                 bilinear[x, y] = value
         weights = np.zeros(f_shape)
         for i in range(f_shape[2]):
-            for j in range(f_shape[3]):
-                weights[:, :, i, j] = bilinear
+            weights[:, :, i, i] = bilinear
 
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)

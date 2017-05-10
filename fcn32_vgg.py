@@ -237,7 +237,7 @@ class FCN32VGG:
 
     def get_deconv_filter(self, f_shape):
         width = f_shape[0]
-        heigh = f_shape[0]
+        heigh = f_shape[1]
         f = ceil(width/2.0)
         c = (2 * f - 1 - f % 2) / (2.0 * f)
         bilinear = np.zeros([f_shape[0], f_shape[1]])
@@ -247,7 +247,8 @@ class FCN32VGG:
                 bilinear[x, y] = value
         weights = np.zeros(f_shape)
         for i in range(f_shape[2]):
-            weights[:, :, i, i] = bilinear
+            for j in range(f_shape[3]):
+                weights[:, :, i, j] = bilinear
 
         init = tf.constant_initializer(value=weights,
                                        dtype=tf.float32)

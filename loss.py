@@ -11,7 +11,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-def loss_2(predictions, labels, loss_type, int_lbl):
+def loss(predictions, labels, loss_type, int_lbl):
   assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
   """Calculate the loss from the predictions & labels.
 
@@ -25,6 +25,7 @@ def loss_2(predictions, labels, loss_type, int_lbl):
 
   with tf.name_scope('loss'):
     if loss_type == "cross_entropy":
+
       # Reshape to: [N,C,H*W]
       predictions_shape= tf.shape(predictions)
       predictions=tf.reshape(predictions, [predictions_shape[0],predictions_shape[1],-1])
@@ -34,18 +35,19 @@ def loss_2(predictions, labels, loss_type, int_lbl):
       labels=tf.reshape(labels,[labels_shape[0], labels_shape[1],-1])
       # Softmax on the last dimension
       # softmax shape : [N,C,H*W]
-      epsilon = tf.constant(value=1e-8) # in case of log(0)
+      epsilon = tf.constant(value=1e-4) # in case of log(0)
       softmax=tf.nn.softmax(predictions) + epsilon
       # Cross entropy, shape:[N,C,H*W]
-      cross_entropy = -labels*tf.log(softmax)-(1-labels)*tf.log(1-softmax)
-      loss=tf.reduce_sum(cross_entropy,axis=(1,2),name='xentropy_mean')
+      cross_entropy = -tf.reduce_sum(labels * tf.log(softmax), axis=-1)
+      loss=tf.reduce_mean(cross_entropy,axis=-1,name='xentropy_mean')
+
     if loss_type == "L2":
       labels = tf.cast(labels,tf.float32)
       loss=tf.reduce_mean(tf.nn.l2_loss(tf.subtract(predictions ,labels)),name="l2_mean")
     tf.add_to_collection('loss', loss)
   return loss
 
-def loss(predictions, labels, loss_type, int_lbl):
+def loss_2(predictions, labels, loss_type, int_lbl):
   assert (loss_type =="cross_entropy" or "L2"), "Please choose a loss between cross_entropy & L2"
   """Calculate the loss from the predictions & labels.
 

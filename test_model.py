@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+np.set_printoptions(threshold=np.nan)
 import pickle
 import cv2
 import h5py
@@ -63,8 +64,13 @@ def get_predictions_float(np_heatmaps,threshold=0.95):
     C = np_heatmaps.shape[1]
     predictions = np.zeros((N,C,2))
 
+    
+
     for n_batch in range(N):
         for n_channel in range(C):
+            # Prevent negative maximum value
+            np_heatmaps[n_batch,n_channel]-=np.amin(np_heatmaps[n_batch,n_channel])
+
             max_value = np.amax(np_heatmaps[n_batch,n_channel])
             low_value_indices=np_heatmaps[n_batch,n_channel]<(threshold*max_value)
             np_heatmaps[n_batch,n_channel][low_value_indices]=0
@@ -103,6 +109,7 @@ def eval_in_batches(data,sess):
 
             eval_pred[begin:end, :] = get_predictions_float(network_output_heatmap)
 
+
             # eval_heatmap[begin:end, :] = np.asarray(network_output_heatmap)
         else:
             network_output, network_output_heatmap = sess.run([test_prediction,test_heat_map],
@@ -113,18 +120,18 @@ def eval_in_batches(data,sess):
 
             # eval_heatmap[begin:, :] = np.asarray(network_output_heatmap[begin - size:, :])
 
-    return  eval_pred,eval_heatmap
+    return  eval_pred,network_output_heatmap
 
 
 ########################################################
 ###############Loading Test Data########################
 ########################################################
 
-h5_file = h5py.File("/home/yongzhe/Project/make_dataset/FCN_VGG/int112/test.h5","r")
+h5_file = h5py.File("/home/yongzhe/Project/make_dataset/heatmap/int112/test.h5","r")
 test_set_image = h5_file['image_set']
 test_set_label_heatmap = h5_file['label_set']
 
-cor_h5_file = h5py.File("/home/yongzhe/Project/make_dataset/VGG/tensorflow/test.h5","r")
+cor_h5_file = h5py.File("/home/yongzhe/Project/make_dataset/coordiantes/tensorflow/test.h5","r")
 test_set_label = cor_h5_file['label_set']
 
 # test_set_image = h5py.File("./data/new_helen_train_image.h5","r")['dataset']
@@ -142,10 +149,23 @@ with tf.Session() as sess:
     test_prediction = tf.get_collection('predictions')[0]
     test_images_node = tf.get_collection('images_node')[0]
     mode= tf.get_collection('mode')[0]
-    prediction, _ = eval_in_batches(test_set_image,sess)
+    prediction, heatmap = eval_in_batches(test_set_image,sess)
+
 
 test_labels = np.reshape(test_set_label,(test_set_label.shape[0],68,2))
 
+# debug 4,7
+# for i in range(112):
+#     for j in range(112):
+#         if np.isnan(heatmap[4,7,i,j]):
+#             print('nan found')
+#             print(i)
+#             print(j)
+
+max_value = np.amax(heatmap[4,7])
+low_value_indices=heatmap[4,7]<(0.95*max_value)
+heatmap[4,7][low_value_indices]=0
+pred_4_7=np.array(center_of_mass(heatmap[4,7]))
 
 # Change the source code of model to exchange the position of x and y
 # prediction_0 = np.expand_dims(prediction[...,0],axis=-1)
